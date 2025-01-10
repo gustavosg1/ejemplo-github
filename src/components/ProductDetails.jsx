@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Grid,
@@ -8,9 +8,38 @@ import {
   CardMedia,
   CardContent,
 } from "@mui/material";
+import { useParams } from "react-router-dom";
+import { db } from "../firebaseConfig"; // Importa la configuración de Firestore
+import { doc, getDoc } from "firebase/firestore";
 
-const ProductDetails = ({ product }) => {
-  if (!product) {
+const ProductDetails = () => {
+  const { id } = useParams(); // Obtener el ID del producto desde la URL
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      setLoading(true);
+      try {
+        const docRef = doc(db, "products", id); // Cambia "products" por el nombre de tu colección
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          setProduct(docSnap.data());
+        } else {
+          console.log("No se encontró el producto.");
+        }
+      } catch (error) {
+        console.error("Error obteniendo los datos del producto:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [id]);
+
+  if (loading) {
     return (
       <Box
         sx={{
@@ -21,6 +50,21 @@ const ProductDetails = ({ product }) => {
         }}
       >
         <Typography variant="h6">Carregant informació del producte...</Typography>
+      </Box>
+    );
+  }
+
+  if (!product) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        <Typography variant="h6">No s'ha trobat el producte.</Typography>
       </Box>
     );
   }
@@ -47,7 +91,7 @@ const ProductDetails = ({ product }) => {
               {product.name}
             </Typography>
             <Typography variant="h6" color="text.secondary" gutterBottom>
-              Preu: {product.price}
+              Preu: {product.price} €
             </Typography>
             <Typography variant="body1" gutterBottom>
               {product.description}

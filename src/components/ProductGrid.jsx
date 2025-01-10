@@ -1,42 +1,112 @@
-import React from "react";
-import { Grid, Card, CardMedia, CardContent, Typography, CardActions, Button } from "@mui/material";
+import React, { useEffect, useState } from "react";
+import { fetchProducts } from "../services/productService";
+import {
+  Box,
+  Grid,
+  Card,
+  CardMedia,
+  CardContent,
+  Typography,
+  Button,
+  CircularProgress,
+} from "@mui/material";
+import { loadStripe } from "@stripe/stripe-js";
 
-const products = [
-  { id: 1, name: "Producto 1", price: "$100", image: "https://via.placeholder.com/200" },
-  { id: 2, name: "Producto 2", price: "$200", image: "https://via.placeholder.com/200" },
-  { id: 3, name: "Producto 3", price: "$300", image: "https://via.placeholder.com/200" },
-  { id: 4, name: "Producto 4", price: "$400", image: "https://via.placeholder.com/200" },
-];
+const stripePromise = loadStripe("pk_test_51QSgAiBNoAIrMHfdrqMMFCgqvBXCJ9ymEpmjB0u8QzZUfrkNRN3DU1FEtI5Pe63YEgz5T3FwmpOvHpuR9hzGn0op00jZoKkROE");
 
 const ProductGrid = () => {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      const data = await fetchProducts();
+      setProducts(data);
+      setLoading(false);
+    };
+    loadProducts();
+  }, []);
+
+  const handleBuyNow = async (product) => {
+    const stripe = await stripePromise;
+
+    try {
+      const response = await fetch("http://localhost:3001/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [
+            {
+              name: product.name,
+              price: product.price,
+              quantity: 1, // Sempre compra una unitat
+            },
+          ],
+          success_url: `${window.location.origin}/success`,
+          cancel_url: `${window.location.origin}/cancel`,
+        }),
+      });
+
+      const { sessionId } = await response.json();
+      await stripe.redirectToCheckout({ sessionId });
+    } catch (error) {
+      console.error("Error al processar el pagament:", error);
+      alert("No s'ha pogut completar el pagament.");
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
-    <Grid container spacing={3} sx={{ padding: 3 }}>
-      {products.map((product) => (
-        <Grid item xs={12} sm={6} md={3} key={product.id}>
-          <Card sx={{ maxWidth: 345 }}>
-            <CardMedia
-              component="img"
-              height="200"
-              image={product.image}
-              alt={product.name}
-            />
-            <CardContent>
-              <Typography variant="h6" component="div">
-                {product.name}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {product.price}
-              </Typography>
-            </CardContent>
-            <CardActions>
-              <Button size="small" variant="contained" color="primary">
-                Agregar al carrito
-              </Button>
-            </CardActions>
-          </Card>
-        </Grid>
-      ))}
-    </Grid>
+    <Box sx={{ padding: "20px" }}>
+      <Grid container spacing={3}>
+        {products.map((product) => (
+          <Grid item xs={12} sm={6} md={4} key={product.id}>
+            <Card>
+              <CardMedia
+                component="img"
+                height="200"
+                image={product.imageURL}
+                alt={product.name}
+                sx={{
+                  objectFit: "cover",
+                }}
+              />
+              <CardContent>
+                <Typography variant="h6">{product.name}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {product.description}
+                </Typography>
+                <Typography variant="h6" sx={{ marginTop: "10px" }}>
+                  €{product.price}
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => handleBuyNow(product)}
+                  sx={{ marginTop: "10px" }}
+                >
+                  Comprar ara
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    </Box>
   );
 };
 
